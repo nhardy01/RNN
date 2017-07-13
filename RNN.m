@@ -1,27 +1,20 @@
 %{
-Class definition for RNN
-
-To do:
-set /get methods
-
-trigger and speedSig input unit parameters
-
-save history
+Class for training and testing RNNs
 %}
 
 
 classdef RNN < handle
     
     properties (Access = protected)
-        %{
-        state and network variables
-        WExEx = recurrent connectivity matrix, WExOut = output connectivity
-        matrix, WInEx = Input connectivity matrix, Ex = unit output
-        (transformed), ExV = unit input (not transformed), Out = output
-        state, In = input state
-        
-        g_ = GPU variable
-        %}
+
+        % state and network variables
+        % WExEx = recurrent connectivity matrix, WExOut = output connectivity
+        % matrix, WInEx = Input connectivity matrix, Ex = unit output
+        % (transformed), ExV = unit input (not transformed), Out = output
+        % state, In = input state
+        %         
+        % g_ = GPU variable
+
         WExEx; WExOut; WInEx; Ex; ExV; Out; In; WExExInit; % initialize weight matrices
         g; % network gain
         gEx; gExV; gnoiseArrPlusIn; % initialize activity variables
@@ -57,7 +50,7 @@ classdef RNN < handle
         numIn = 3;
         P_Connect = 0.2;
         tau = 50;
-        numOut= 1;
+        numOut = 1;
         numEx; %total number of Ex units
         TrigAmp; %stim level for initializeing RRN activity. uses WIn(stim)
         ExExTrainTonicStims;%stims level 2 for tonic RRN stim uses WIn(3)
@@ -90,11 +83,11 @@ classdef RNN < handle
             end
         end
         
-        function [newExV, newEx] = IterateRNN_CPU(obj, NoisePlusIn)
+        function [newExV, newEx] = IterateRNN_CPU(obj,In)
             if  isempty(obj.Ex) || isempty(obj.ExV)
                 error('RNN state must be set')
             else
-                ex_input = obj.WExEx'*obj.Ex + NoisePlusIn;
+                ex_input = obj.WExEx'*obj.Ex + In;
                 newExV = obj.ExV + (-obj.ExV + ex_input)./obj.tau;
                 newEx = tanh(newExV);
                 obj.Ex = newEx;
