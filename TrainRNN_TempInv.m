@@ -1,50 +1,62 @@
-function TrainRNN_TempInv(RNN,TrainTrials)
-trigStart=500;
-trigEnd = RNN.TrigDur + trigStart;
-innateTotT = RNN.TargLen + trigEnd + RNN.restDur;
-%% Generate the RNN target
-InPulses = RNN.generateInputPulses(...
-    [RNN.CueIn, RNN.SpeedIn],...
-    [RNN.TrigAmp, RNN.originalTonicLvl],...
+function TrainRNN_TempInv(Net,durBL,TrainTrials)
+trigStart = 500;
+TrigDur = Net.tau * 5;
+trigEnd = TrigDur + trigStart;
+ixCue = 2;
+ixSpeed = 3;
+aInBL = 0.3;
+durFact = [1,4];
+aIn = aInBL./durFact;
+aCue = 3;
+tRest = 0;
+stimOrder = 1:TrainTrials;
+stimOrder(2:2:end) = 2;
+aNoise = 0.25;
+tTrainStep = 5;
+innateTotT = durBL + trigEnd + tRest;
+%% Generate the Net target
+InPulses = Net.generateInputPulses(...
+    [ixCue, ixSpeed],...
+    [aCue, aInBL],...
     [trigStart, trigStart],...
-    [trigEnd, trigEnd+RNN.TargLen],...
+    [trigEnd, trigEnd+durBL],...
     innateTotT);
-NoiseIn = RNN.generateNoiseInput(InPulses,0);
-InnateTarg = zeros(RNN.numEx, innateTotT);
-RNN.randStateRRN;
+NoiseIn = Net.generateNoiseInput(InPulses,0);
+InnateTarg = zeros(Net.nRec, innateTotT);
+Net.randStateRRN;
 for t = 1:innateTotT
     In = NoiseIn(:,t);
-    [~, InnateTarg(:,t)] = RNN.IterateRNN_CPU(In);
+    [~, InnateTarg(:,t)] = Net.IterateRNN_CPU(In);
 end
-GatedTarg = RNN.gatedExTarget(InnateTarg,...
-    innateTotT-RNN.restDur, 30);
-[ScaledTargs, TargLens] = RNN.scaleTarget(GatedTarg,...
-    trigEnd, trigEnd+RNN.TargLen);
+GatedTarg = Net.gatedRecTarget(InnateTarg,...
+    innateTotT-tRest, 30);
+[ScaledTargs, TargLens] = Net.scaleTarget(InnateTarg,...
+    trigEnd, trigEnd+durBL,1,100,aIn,aInBL);
 clear GatedTarg InnateTarg InPulses NoiseIn
-%% Train RNN
-RNN.setRNNTarget(ScaledTargs);
-RNN.generate_W_P_GPU;
+%% Train Net
+Net.setRNNTarget(ScaledTargs);
+Net.generate_W_P_GPU;
 for trial = 1:TrainTrials
-    stim = RNN.TrainStimOrder(trial);
+    stim = stimOrder(trial);
     thisTrialTrainTime = TargLens(stim);
-    sigEnd = TargLens(stim) - RNN.restDur;
+    sigEnd = TargLens(stim) - tRest;
     thisTarg = gpuArray(single(ScaledTargs{stim}));
-    thisSpeedSig = RNN.ExExTrainTonicStims(stim);
-    InPulses = RNN.generateInputPulses(...
-        [RNN.CueIn,RNN.SpeedIn],...
-        [RNN.TrigAmp, thisSpeedSig],...
+    thisSpeedSig = aIn(stim);
+    InPulses = Net.generateInputPulses(...
+        [ixCue,ixSpeed],...
+        [aCue, thisSpeedSig],...
         [trigStart, trigStart],...
         [trigEnd, sigEnd],...
         thisTrialTrainTime);
-    NoiseIn = RNN.generateNoiseInput(InPulses,RNN.innateNoiseLvl);
-    RNN.randStateRRN;
-    RNN.RNNStateGPU;
-    RNN.trainRNNTargetGPU(thisTarg,...
-        [trigEnd:RNN.trainTimeStep:thisTrialTrainTime], NoiseIn);
-    fprintf([RNN.getName,' TrainTrial:%i/%i Stim:%i/%i SpeedIn:%.2g SpeedDur:%i\n'],...
-        trial,TrainTrials,stim,numel(unique(RNN.TrainStimOrder)),thisSpeedSig,sigEnd-trigEnd)
+    NoiseIn = Net.generateNoiseInput(InPulses,aNoise);
+    Net.randStateRRN;
+    Net.RNNStateGPU;
+    Net.trainRNNFORCE_GPU(thisTarg,...
+        [trigEnd:tTrainStep:thisTrialTrainTime], NoiseIn);
+    fprintf([Net.getName,' TrainTrial:%i/%i Stim:%i/%i SpeedIn:%.2g SpeedDur:%i\n'],...
+        trial,TrainTrials,stim,numel(unique(stimOrder)),thisSpeedSig,sigEnd-trigEnd)
 end
 
-RNN.reconWs; % reconstruct weights from GPU values
-RNN.clearStateVars;
+Net.reconWs; % reconstruct weights from GPU values
+Net.clearStateVars;
 end

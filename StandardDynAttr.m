@@ -24,60 +24,60 @@ if ~exist(SaveDir)
     mkdir(SaveDir)
 end
 fprintf([SaveDir, '\n'])
-ThisNet = RNN(Seed, G, N, NumIn, NumOut); %initiate network
+Net = RNN(Seed, G, N, NumIn, NumOut); %initiate network
 %% Set standard parameters
-ThisNet.TrainStimOrder = StimOrder;
-ThisNet.TrigAmp = TrigAmp;
-ThisNet.TrigDur = TrigDur;
-ThisNet.TargLen = TargLen;
-ThisNet.innateNoiseLvl = NoiseL;
-ThisNet.scaleDir=0;
+stimOrder = StimOrder;
+aCue = TrigAmp;
+Net.TrigDur = TrigDur;
+Net.TargLen = TargLen;
+aNoise = NoiseL;
+Net.scaleDir=0;
 %% Set testing parameters
-ThisNet.scalingFactor=0;
-ThisNet.tau=Tau;
-ThisNet.originalTonicLvl = 0;
-ThisNet.scalingTics = 0;
-ThisNet.ExExTrainTonicStims=0;
-trigEnd = ThisNet.TrigDur + trigStart;
-innateTotT = ThisNet.TargLen + trigEnd;
+Net.scalingFactor=0;
+Net.tau=Tau;
+Net.originalTonicLvl = 0;
+Net.scalingTics = 0;
+Net.ExExTrainTonicStims=0;
+trigEnd = Net.TrigDur + trigStart;
+innateTotT = Net.TargLen + trigEnd;
 %% Generate the RNN target
-InPulses = ThisNet.generateInputPulses(...
+InPulses = Net.generateInputPulses(...
     2,...
-    ThisNet.TrigAmp,...
+    ThisaCue,...
     trigStart,...
     trigEnd,...
     innateTotT);
-NoiseIn = ThisNet.generateNoiseInput(InPulses, ...
+NoiseIn = Net.generateNoiseInput(InPulses, ...
     0);
-InnateTarg = zeros(ThisNet.numEx, innateTotT);
-ThisNet.randStateRRN;
+InnateTarg = zeros(Net.nRec, innateTotT);
+Net.randStateRRN;
 for t = 1:innateTotT
     In = NoiseIn(:,t);
-    [~, InnateTarg(:,t)] = ThisNet.IterateRNN_CPU(In);
+    [~, InnateTarg(:,t)] = Net.IterateRNN_CPU(In);
 end
 %% Train RNN
-ThisNet.setRNNTarget(InnateTarg);
-ThisNet.generate_W_P_GPU;
+Net.setRNNTarget(InnateTarg);
+Net.generate_W_P_GPU;
 tic
 thisTarg = gpuArray(single(InnateTarg));
 TargFig=figure; imagesc(InnateTarg); title('Target');
 InFig=figure; plot(InPulses'); title('Input');
 NoiseFig=figure;
 for trial = 1:TrainTrials
-    NoiseIn = ThisNet.generateNoiseInput(InPulses, ...
-        ThisNet.innateNoiseLvl);
+    NoiseIn = Net.generateNoiseInput(InPulses, ...
+        aNoise);
     figure(NoiseFig);clf; plot(NoiseIn'); title('InPlusNoise');
-    ThisNet.randStateRRN;
-    ThisNet.RNNStateGPU;
-    ThisNet.trainRNNTargetGPU(thisTarg,...
+    Net.randStateRRN;
+    Net.RNNStateGPU;
+    Net.trainRNNFORCE_GPU(thisTarg,...
         [trigEnd:trainStep:innateTotT], NoiseIn);
     drawnow;
 end
-ThisNet.reconWs; % reconstruct weights from GPU values
-ThisNet.clearStateVars;
+Net.reconWs; % reconstruct weights from GPU values
+Net.clearStateVars;
 %% train output
-OutDur = ThisNet.TargLen+trigEnd;
-ThisNet.generateP_CPU;
+OutDur = Net.TargLen+trigEnd;
+Net.generateP_CPU;
 AllTargTimes = [163,513,750,1200,1750]+trigEnd;
 OutTarget = zeros(1,OutDur);
 for targTInd = 1:numel(AllTargTimes)
@@ -88,28 +88,28 @@ for targTInd = 1:numel(AllTargTimes)
 end
 OutTarget=OutTarget-mean(OutTarget);
 outTrnWind = trigEnd:OutDur;
-ThisNet.newState(ThisNet.getNetworkSeed*31);
+Net.newState(Net.getNetworkSeed*31);
 outFig = figure; hold on; title('Out Train')
 plot(OutTarget,'--k','linewidth',2);
 recFig = figure; hold on; title('RNNUnit Out Train')
 plot(InnateTarg(10,:), '--k', 'linewidth', 2);
 for trialInd = 1:numOutTrials
-    NoiseIn = ThisNet.generateNoiseInput(InPulses, ...
-        ThisNet.innateNoiseLvl);
-    hEx = zeros(ThisNet.numEx, OutDur);
-    hOut = zeros(ThisNet.numOut, OutDur);
-    ThisNet.randStateRRN;
+    NoiseIn = Net.generateNoiseInput(InPulses, ...
+        aNoise);
+    hEx = zeros(Net.nRec, OutDur);
+    hOut = zeros(Net.numOut, OutDur);
+    Net.randStateRRN;
     for t = 1:OutDur
         In = NoiseIn(:,t);
-        [~, hEx(:,t)] = ThisNet.IterateRNN_CPU(In);
-        hOut(:,t) = ThisNet.IterateOutCPU;
+        [~, hEx(:,t)] = Net.IterateRNN_CPU(In);
+        hOut(:,t) = Net.IterateOutCPU;
         if ismember(t,outTrnWind)
-            ThisNet.trainOutputFORCE(OutTarget(:,t));
+            Net.trainOutFORCE(OutTarget(:,t));
         end
     end
     figure(recFig); plot(hEx(10,:));drawnow;
     figure(outFig); plot(hOut'); drawnow;
 end
-ThisNet.clearStateVars;
-ThisNet.saveRNN(SaveDir);
-clear ThisNet; gpuDevice(); close all;
+Net.clearStateVars;
+Net.saveRNN(SaveDir);
+clear Net; gpuDevice(); close all;

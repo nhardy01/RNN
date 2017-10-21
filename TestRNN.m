@@ -1,18 +1,18 @@
-function TestRNN(RNN,SaveDir,NoiseAmp,TrialsPerStim,HExSaveTrials,Debug,CueIn,SpeedIn,InterpSS)
+function TestRNN(Net,SaveDir,NoiseAmp,TrialsPerStim,HExSaveTrials,Debug,CueIn,SpeedIn,InterpSS)
 %% Check and organize inputs
 narginchk(5,9);
 switch nargin
     case 5
         Debug=false;
-        CueIn=RNN.CueIn;
-        SpeedIn=RNN.SpeedIn;
+        CueIn=Net.CueIn;
+        SpeedIn=Net.SpeedIn;
         InterpSS=[0.0750,0.099,0.15,0.225,0.3];% to replicate psychophysics speeds, assumes these standard speeds
     case 6
-        CueIn=RNN.CueIn;
-        SpeedIn=RNN.SpeedIn;
+        CueIn=Net.CueIn;
+        SpeedIn=Net.SpeedIn;
         InterpSS=[0.0750,0.099,0.15,0.225,0.3];% to replicate psychophysics speeds, assumes these standard speeds
     case 7
-        SpeedIn=RNN.SpeedIn;
+        SpeedIn=Net.SpeedIn;
         InterpSS=[0.0750,0.099,0.15,0.225,0.3];% to replicate psychophysics speeds, assumes these standard speeds
     case 8
         InterpSS=[0.0750,0.099,0.15,0.225,0.3];% to replicate psychophysics speeds, assumes these standard speeds
@@ -20,9 +20,9 @@ end
 %% Parameters
 TrigStart=500;
 Threshold=0.2;
-peekU=randi(RNN.numEx,1);
+peekU=randi(Net.nRec,1);
 XDurr=0.15/min(InterpSS)+1; % normalize total length, assuming 1x speed is 4000 ms
-TrigDur=RNN.TrigDur;
+TrigDur=Net.TrigDur;
 TrigEnd=TrigDur+TrigStart;
 TotT=round(4000*XDurr+1000+TrigEnd);
 NumSpeeds=numel(InterpSS);
@@ -40,21 +40,21 @@ FullRecFig=figure;
 if Debug; viewHitFig=figure; end;
 %% Start simulations
 TestSeed=randi(1000); % make sure the testing seed is different than the traing seed
-while TestSeed==RNN.getNetworkSeed
+while TestSeed==Net.getNetworkSeed
     TestSeed=randi(1000);
 end
-RNN.newState(TestSeed);
+Net.newState(TestSeed);
 for repNum = 1:TrialsPerStim
     for thisSpeedStim=1:NumSpeeds
         for cueInd=1:numel(CueIn)
             thisCue=CueIn(cueInd);
             thisSS=InterpSS(thisSpeedStim);
-            InPulse=RNN.generateInputPulses([thisCue,SpeedIn],[RNN.TrigAmp,thisSS],...
+            InPulse=Net.generateInputPulses([thisCue,SpeedIn],[Net.TrigAmp,thisSS],...
                 [TrigStart,TrigStart],[TrigEnd,TotT-TrigEnd],TotT);
-            hEx=zeros(RNN.numEx,TotT);
-            hOut=zeros(RNN.numOut,TotT);
-            hIn=zeros(RNN.numIn,TotT);
-            RNN.randStateRRN;
+            hEx=zeros(Net.nRec,TotT);
+            hOut=zeros(Net.numOut,TotT);
+            hIn=zeros(Net.numIn,TotT);
+            Net.randStateRRN;
             count=0; lastHit=[];
             for t = 1:TotT
                 In=InPulse(:,t);
@@ -65,9 +65,9 @@ for repNum = 1:TrialsPerStim
                     end
                 end
                 hIn(:,t)=In;
-                InNoise=RNN.getWInEx*In+randn(RNN.numEx,1)*RNN.innateNoiseLvl*NoiseAmp;
-                [~,hEx(:,t)]=RNN.IterateRNN_CPU(InNoise);
-                hOut(:,t)=RNN.IterateOutCPU;
+                InNoise=Net.getWInRec*In+randn(Net.nRec,1)*aNoise*NoiseAmp;
+                [~,hEx(:,t)]=Net.IterateRNN_CPU(InNoise);
+                hOut(:,t)=Net.IterateOutCPU;
                 if t>TrigEnd+1300 && count<5
                     smthH=smooth(hOut(TrigEnd+1:t),150);
                     [pks,locs]=findpeaks(smthH(1:end-100),...
@@ -108,8 +108,8 @@ for repNum = 1:TrialsPerStim
                 plot(thisTrialPeak,hOut(thisTrialPeak),'.k',...
                     'MarkerSize',15)
             end
-            title(o1h,sprintf('Out Test Noise%g',RNN.innateNoiseLvl));
-            title(r1h,sprintf('RNN Test Noise%g',RNN.innateNoiseLvl));
+            title(o1h,sprintf('Out Test Noise%g',aNoise));
+            title(r1h,sprintf('Net Test Noise%g',aNoise));
             figure(FullRecFig); clf; imagesc(hEx);
             drawnow;
         end
@@ -123,7 +123,7 @@ VarHit=squeeze(nanvar(PeakTimes,[],2));
 if ~exist(SaveDir,'dir')
     mkdir(SaveDir)
 end
-saveName=[RNN.getName,sprintf('_TestActivity_ExtrapOnly',NoiseAmp)];
+saveName=[Net.getName,sprintf('_TestActivity_ExtrapOnly',NoiseAmp)];
 save(fullfile(SaveDir,saveName),'AllHOut','AllHIn','AllHEx','TrigStart',...
     'NoiseAmp','TestSeed','PeakTimes','StimOff','InterpSS','TrigDur',...
     'MnHit','StdHit','VarHit','-v7.3')
