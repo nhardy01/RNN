@@ -27,23 +27,14 @@ fprintf([SaveDir, '\n'])
 Net = RNN(Seed, G, N, NumIn, NumOut); %initiate network
 %% Set standard parameters
 stimOrder = StimOrder;
-aCue = TrigAmp;
-Net.TrigDur = TrigDur;
-Net.TargLen = TargLen;
-aNoise = NoiseL;
-Net.scaleDir=0;
 %% Set testing parameters
-Net.scalingFactor=0;
 Net.tau=Tau;
-Net.originalTonicLvl = 0;
-Net.scalingTics = 0;
-Net.ExExTrainTonicStims=0;
-trigEnd = Net.TrigDur + trigStart;
-innateTotT = Net.TargLen + trigEnd;
+trigEnd = TrigDur + trigStart;
+innateTotT = TargLen + trigEnd;
 %% Generate the RNN target
 InPulses = Net.generateInputPulses(...
     2,...
-    ThisaCue,...
+    TrigAmp,...
     trigStart,...
     trigEnd,...
     innateTotT);
@@ -76,17 +67,17 @@ end
 Net.reconWs; % reconstruct weights from GPU values
 Net.clearStateVars;
 %% train output
-OutDur = Net.TargLen+trigEnd;
+OutDur = TargLen+trigEnd;
 Net.generateP_CPU;
 AllTargTimes = [163,513,750,1200,1750]+trigEnd;
 OutTarget = zeros(1,OutDur);
 for targTInd = 1:numel(AllTargTimes)
-    thisHitTime=AllTargTimes(targTInd);
+    thisHitTime = AllTargTimes(targTInd);
     ThisHit = normpdf(1:OutDur,thisHitTime,50);
-    ThisHit=(1/max(ThisHit)).*ThisHit;
+    ThisHit = (1/max(ThisHit)).*ThisHit;
     OutTarget = OutTarget+ThisHit;
 end
-OutTarget=OutTarget-mean(OutTarget);
+OutTarget = OutTarget-mean(OutTarget);
 outTrnWind = trigEnd:OutDur;
 Net.newState(Net.getNetworkSeed*31);
 outFig = figure; hold on; title('Out Train')

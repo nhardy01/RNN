@@ -51,7 +51,6 @@ classdef (ConstructOnLoad = false) RNN < handle
         dW;
 		P;
         Target; % targRec for recurrent training
-        Trained_RNN; Trained_Output; % trained or untrained boolean
         % GPU training variables
         PRecs; % P matrix
         PIndsC; % presynaptic input sources for each neuron
@@ -553,9 +552,9 @@ classdef (ConstructOnLoad = false) RNN < handle
             % Sets RNN aRecS to newaRecS, and aRec to tanh(aRecS)
 
             if isequal(size(newaRecS),[obj.nRec,1])
-                obj.aRecS=newaRecS;
-                newEx=tanh(obj.aRecS);
-                obj.aRec=newEx;
+                obj.aRecS = newaRecS;
+                newEx     = tanh(obj.aRecS);
+                obj.aRec  = newEx;
                 fprintf([obj.Name,' aRecS set, aRec set to tanh(aRecS)\n'])
             else
                 error('newEx must be size [nRec,1]. aRec not set.')
@@ -612,6 +611,7 @@ classdef (ConstructOnLoad = false) RNN < handle
         function trainRNNFORCE_GPUFull(obj, gEx, error_rec, cumPreSizes,...
                 cumPreSizeSq, PInds, PRecs, gwRec, RecList, NumCol,...
                 nGridCell, mxPre)
+
             mexGPUTrain(gEx, ...
                 error_rec, ...
                 cumPreSizes, ...
