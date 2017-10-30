@@ -1,15 +1,15 @@
 clear;close all;
 MasterSaveDir='~/Documents/Nick/TemporalInvariance/StandardDynAttr';
-Seed=69;
-G=1.6;
-N=1800;
-NumIn=3;
-NumOut=1;
-TrigAmp=5;
-Tau=50;
+Seed    = 69;
+G       = 1.6;
+N       = 1800;
+NumIn   = 3;
+NumOut  = 1;
+TrigAmp = 5;
+Tau     = 50;
 TargLen=2000;
 TrigDur=Tau*5;
-NoiseL=0.05;
+aNoise =0.05;
 TrainTrials=15;
 trainStep=5;
 trigStart=500;
@@ -19,7 +19,7 @@ SaveDir = fullfile(MasterSaveDir,...
     sprintf('Tau_%i',Tau),...
     sprintf('G_%.3g',G),...
     sprintf('TrainTrial_%.1g',TrainTrials),...
-    sprintf('NoiseAmp_%.2g',NoiseL));
+    sprintf('NoiseAmp_%.2g',aNoise));
 if ~exist(SaveDir)
     mkdir(SaveDir)
 end
@@ -88,7 +88,7 @@ for trialInd = 1:numOutTrials
     NoiseIn = Net.generateNoiseInput(InPulses, ...
         aNoise);
     hEx = zeros(Net.nRec, OutDur);
-    hOut = zeros(Net.numOut, OutDur);
+    hOut = zeros(Net.nOut, OutDur);
     Net.randStateRRN;
     for t = 1:OutDur
         In = NoiseIn(:,t);

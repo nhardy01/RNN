@@ -20,7 +20,7 @@ classdef (ConstructOnLoad = false) RNN < handle
 % 	Law is Speed-dependent. BioRxiv 159590.
 
 
-    properties (Access = protected)
+    properties (SetAccess = protected)
         % The user shouldn't need to change these properties after
         % instantiation
         % Network variables
@@ -33,6 +33,8 @@ classdef (ConstructOnLoad = false) RNN < handle
         aIn;         % aIn unit activity
         wRecInit;  % store the initial weights
         g;          % network gain
+        nOut = 1; % number of outputs
+        nRec; %total number of aRec units
         % some variables for the GPU kernal
         gRec;  % initialize activity variables
         gaRecS;
@@ -63,15 +65,13 @@ classdef (ConstructOnLoad = false) RNN < handle
         RNNTrainTrials=0;
     end
 
-    properties
+    properties (Access = public)
         % simulation parameters, initialized to default values
         alpha       = 10; % damping parameter fro weight matrix
         nGridCell   = 4; % number of cells to cluster in the GPU
         nIn         = 3; % number of inputs
         pConn       = 0.2; % recurrent connection probability
         tau         = 50; % recurrent unit time constant
-        nOut        = 1; % number of outputs
-        nRec; %total number of aRec units
     end
 
     methods
@@ -588,7 +588,7 @@ classdef (ConstructOnLoad = false) RNN < handle
             obj.WInRec = randn(obj.nRec, obj.nIn);
         end
 
-        function iterateRNN_GPUFull(obj, gwRec, gwRecOut, NoisePlusIn,...
+        function iterateRNN_GPUFull(obj,gwRec, gwRecOut, NoisePlusIn,...
                 cumPreSizes, PInds, aRec, aRecS, aOut, t, NumCol,...
                 nGridCell, nOut, tau, mxPre)
 
@@ -608,7 +608,7 @@ classdef (ConstructOnLoad = false) RNN < handle
                 single(mxPre));
         end
 
-        function trainRNNFORCE_GPUFull(obj, gEx, error_rec, cumPreSizes,...
+        function trainRNNFORCE_GPUFull(obj,gEx, error_rec, cumPreSizes,...
                 cumPreSizeSq, PInds, PRecs, gwRec, RecList, NumCol,...
                 nGridCell, mxPre)
 
