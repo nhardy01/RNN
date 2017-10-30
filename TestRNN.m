@@ -1,30 +1,14 @@
 function TestRNN(Net,SaveDir,NoiseAmp,TrialsPerStim,HExSaveTrials,Debug,CueIn,SpeedIn,InterpSS)
 %% Check and organize inputs
-narginchk(5,9);
-switch nargin
-    case 5
-        Debug=false;
-        CueIn=Net.CueIn;
-        SpeedIn=Net.SpeedIn;
-        InterpSS=[0.0750,0.099,0.15,0.225,0.3];% to replicate psychophysics speeds, assumes these standard speeds
-    case 6
-        CueIn=Net.CueIn;
-        SpeedIn=Net.SpeedIn;
-        InterpSS=[0.0750,0.099,0.15,0.225,0.3];% to replicate psychophysics speeds, assumes these standard speeds
-    case 7
-        SpeedIn=Net.SpeedIn;
-        InterpSS=[0.0750,0.099,0.15,0.225,0.3];% to replicate psychophysics speeds, assumes these standard speeds
-    case 8
-        InterpSS=[0.0750,0.099,0.15,0.225,0.3];% to replicate psychophysics speeds, assumes these standard speeds
-end
+
 %% Parameters
 TrigStart=500;
 Threshold=0.2;
 peekU=randi(Net.nRec,1);
-XDurr=0.15/min(InterpSS)+1; % normalize total length, assuming 1x speed is 4000 ms
-TrigDur=Net.TrigDur;
+TrigDur=Net.tau*5;
+TrigAmp = 5;
 TrigEnd=TrigDur+TrigStart;
-TotT=round(4000*XDurr+1000+TrigEnd);
+TotT=9000+TrigEnd;
 NumSpeeds=numel(InterpSS);
 %% Define variables
 AllHEx=cell(NumSpeeds,HExSaveTrials,numel(CueIn)); % only store the number of desired hEx trials
@@ -49,11 +33,11 @@ for repNum = 1:TrialsPerStim
         for cueInd=1:numel(CueIn)
             thisCue=CueIn(cueInd);
             thisSS=InterpSS(thisSpeedStim);
-            InPulse=Net.generateInputPulses([thisCue,SpeedIn],[Net.TrigAmp,thisSS],...
+            InPulse=Net.generateInputPulses([thisCue,SpeedIn],[TrigAmp,thisSS],...
                 [TrigStart,TrigStart],[TrigEnd,TotT-TrigEnd],TotT);
             hEx=zeros(Net.nRec,TotT);
-            hOut=zeros(Net.numOut,TotT);
-            hIn=zeros(Net.numIn,TotT);
+            hOut=zeros(Net.nOut,TotT);
+            hIn=zeros(Net.nIn,TotT);
             Net.randStateRRN;
             count=0; lastHit=[];
             for t = 1:TotT
@@ -65,15 +49,15 @@ for repNum = 1:TrialsPerStim
                     end
                 end
                 hIn(:,t)=In;
-                InNoise=Net.getWInRec*In+randn(Net.nRec,1)*aNoise*NoiseAmp;
+                InNoise=Net.getWInRec*In+randn(Net.nRec,1)*NoiseAmp;
                 [~,hEx(:,t)]=Net.IterateRNN_CPU(InNoise);
                 hOut(:,t)=Net.IterateOutCPU;
                 if t>TrigEnd+1300 && count<5
                     smthH=smooth(hOut(TrigEnd+1:t),150);
                     [pks,locs]=findpeaks(smthH(1:end-100),...
                         'MinPeakDistance',125,...
-                        'MinPeakProminence',0.2,...
                         'MinPeakHeight',Threshold);
+                    % 'MinPeakProminence',0.2,...
                     count=numel(locs);
                 elseif count==5 && isempty(lastHit)
                     lastHit=locs(5)+TrigEnd;
@@ -108,8 +92,8 @@ for repNum = 1:TrialsPerStim
                 plot(thisTrialPeak,hOut(thisTrialPeak),'.k',...
                     'MarkerSize',15)
             end
-            title(o1h,sprintf('Out Test Noise%g',aNoise));
-            title(r1h,sprintf('Net Test Noise%g',aNoise));
+            title(o1h,sprintf('Out Test Noise%g',NoiseAmp));
+            title(r1h,sprintf('Net Test Noise%g',NoiseAmp));
             figure(FullRecFig); clf; imagesc(hEx);
             drawnow;
         end
